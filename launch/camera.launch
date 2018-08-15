@@ -1,0 +1,4 @@
+<launch>
+    <include file="$(find openni2_launch)/launch/openni2.launch"/>
+    <node name="openpose_tracker" pkg="openpose_py_ros" type="op_ros.py" output="screen"/>
+</launch>
