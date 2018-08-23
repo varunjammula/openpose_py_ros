@@ -16,7 +16,7 @@ import numpy as np
 # else: sys.path.append('../../python');
 # # Option b
 # # If you run `make install` (default path is `/usr/local/python` for Ubuntu), you can also access the OpenPose/python module from there. This will install OpenPose and the python library at your desired installation path. Ensure that this is in your python path in order to use it.
-#sys.path.append('/usr/local/python')
+sys.path.append('/usr/local/python')
 
 # Parameters for OpenPose. Take a look at C++ OpenPose example for meaning of components. Ensure all below are filled
 
@@ -36,7 +36,7 @@ params["render_threshold"] = 0.05
 params["num_gpu_start"] = 0
 params["disable_blending"] = False
 # Ensure you point to the correct path where models are located
-params["default_model_folder"] = '/home/apg/openpose/models/'
+params["default_model_folder"] = '/home/varun/openpose/models/'
 # Construct OpenPose object allocates GPU memory
 openpose = OpenPose(params)
 
@@ -61,28 +61,27 @@ class ROS2OpenCV2(object):
         self.image_sub = rospy.Subscriber("/camera/rgb/image_raw", Image, self.image_callback)
 
         while not rospy.is_shutdown():
-            if self.frame is not None:
-                keypoints, output_image = openpose.forward(self.frame, True)
-                #output_image = self.frame
-                # Compute the time for this loop and estimate CPS as a running average
-                end = time.time()
-                duration = end - self.start
-                fps = int(1.0 / duration)
-
-                cv2.putText(output_image, "CPS: " + str(fps), (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-                            (255, 255, 0))
-
-                # Update the image display
-                cv2.imshow(self.node_name, output_image)
-
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    return
+            rospy.spin()
 
     def image_callback(self, data):
         # Convert the ROS image to OpenCV format using a cv_bridge helper function
-        self.start = time.time()
         self.frame = self.convert_image(data)
+        if self.frame is not None:
+            print 'here'
+            keypoints, output_image = openpose.forward(self.frame, True)
+            print 'done'
+            end = time.time()
+            duration = end - self.start
+            fps = int(1.0 / duration)
 
+            cv2.putText(output_image, "CPS: " + str(fps), (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                        (255, 255, 0))
+
+            # Update the image display
+            cv2.imshow(self.node_name, output_image)
+            print '-------'
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                return
 
     def convert_image(self, ros_image):
         # Use cv_bridge() to convert the ROS image to OpenCV format
