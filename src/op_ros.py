@@ -7,7 +7,6 @@ import cv2
 import rospy
 from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image
-from openpose import *
 import numpy as np
 
 # dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -16,7 +15,7 @@ import numpy as np
 # else: sys.path.append('../../python');
 # # Option b
 # # If you run `make install` (default path is `/usr/local/python` for Ubuntu), you can also access the OpenPose/python module from there. This will install OpenPose and the python library at your desired installation path. Ensure that this is in your python path in order to use it.
-#sys.path.append('/usr/local/python')
+sys.path.append('/usr/local/python')
 
 # Parameters for OpenPose. Take a look at C++ OpenPose example for meaning of components. Ensure all below are filled
 
@@ -63,7 +62,21 @@ class ROS2OpenCV2(object):
 
         while not rospy.is_shutdown():
             if self.frame is not None:
+                self.start = time.time()
                 keypoints, output_image = openpose.forward(self.frame, True)
+                if len(keypoints) > 0:
+                    b_parts = keypoints[0]
+                    pts = []
+                    for i in range(len(b_parts)):
+                        print 'x: {}, y:{}, confidence: {}'.format(b_parts[i][0], b_parts[i][1], b_parts[i][2])
+                        if b_parts[i][2] > 0:
+                            pts.append((b_parts[i][0], b_parts[i][1]))
+
+                    points_matrix = np.array(pts).reshape((-1, 1, 2)).astype(np.int32)
+                    self.rect = cv2.boundingRect(points_matrix)
+                    if self.rect is not None:
+                        cv2.rectangle(output_image, (self.rect[0], self.rect[1]),
+                                      (self.rect[0] + self.rect[2], self.rect[1] + self.rect[3]), (0, 255, 0), 1)
                 #output_image = self.frame
                 # Compute the time for this loop and estimate CPS as a running average
                 end = time.time()
@@ -81,7 +94,6 @@ class ROS2OpenCV2(object):
 
     def image_callback(self, data):
         # Convert the ROS image to OpenCV format using a cv_bridge helper function
-        self.start = time.time()
         self.frame = self.convert_image(data)
 
 
@@ -100,7 +112,7 @@ class ROS2OpenCV2(object):
 
 def main(args):
     try:
-        node_name = "Openpose"
+        node_name = "Openpose-Tracker"
         ROS2OpenCV2(node_name)
         #rospy.spin()
     except KeyboardInterrupt:
