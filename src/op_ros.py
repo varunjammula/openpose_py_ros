@@ -59,13 +59,17 @@ class ROS2OpenCV2(object):
         # Create the cv_bridge object
         self.bridge = CvBridge()
         self.frame = None
+        self.rect = None
         self.start = 0
         self.roi_pub = rospy.Publisher('/roi', RegionOfInterest, queue_size=10)
         self.image_sub = rospy.Subscriber(img_topic_name, Image, self.image_callback)
 
         while not rospy.is_shutdown():
+            ROI = RegionOfInterest()
+            self.rect = None
+
+            #openpose-detection
             if self.frame is not None:
-                # rospy.loginfo("Processing image")
                 self.start = time.time()
                 keypoints = openpose.forward(self.frame, False)
                 if len(keypoints) > 0:
@@ -77,17 +81,9 @@ class ROS2OpenCV2(object):
                             pts.append((b_parts[i][0], b_parts[i][1]))
 
                     points_matrix = np.array(pts).reshape((-1, 1, 2)).astype(np.int32)
+                    # bounding-box
                     self.rect = cv2.boundingRect(points_matrix)
-                    ROI = RegionOfInterest()
-                    if self.rect is not None:
-                        ROI.x_offset = int(self.rect[0])
-                        ROI.y_offset = int(self.rect[1])
-                        ROI.width = int(self.rect[2])
-                        ROI.height = int(self.rect[3])
-                        ROI.do_rectify = True
-                        cv2.rectangle(self.frame, (self.rect[0], self.rect[1]),
-                                      (self.rect[0] + self.rect[2], self.rect[1] + self.rect[3]), (0, 255, 0), 1)
-                    self.roi_pub.publish(ROI)
+
 
                 # Compute the time for this loop and estimate CPS as a running average
                 end = time.time()
@@ -97,18 +93,29 @@ class ROS2OpenCV2(object):
                 cv2.putText(self.frame, "FPS: " + str(fps), (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                             (255, 255, 0))
 
-                # Update the image display
+            if self.rect is not None:
+                ROI.x_offset = int(self.rect[0])
+                ROI.y_offset = int(self.rect[1])
+                ROI.width = int(self.rect[2])
+                ROI.height = int(self.rect[3])
+                ROI.do_rectify = True
+                cv2.rectangle(self.frame, (self.rect[0], self.rect[1]),
+                              (self.rect[0] + self.rect[2], self.rect[1] + self.rect[3]), (0, 255, 0), 1)
+            self.roi_pub.publish(ROI)
+
+            # Update the image display
+            if self.frame is not None:
                 cv2.imshow(self.node_name, self.frame)
 
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    return
-            #self.frame = None
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                return
+
+
 
     def image_callback(self, data):
         # Convert the ROS image to OpenCV format using a cv_bridge helper function
         # rospy.loginfo("Image callback!!")
         self.frame = self.convert_image(data)
-
 
     def convert_image(self, ros_image):
         try:
